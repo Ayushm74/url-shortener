@@ -1,8 +1,12 @@
-function generateCode(length = 6) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let res = '';
-  for (let i = 0; i < length; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
-  return res;
-}
+const { nanoid } = require("nanoid");
+
+/*
+Generates a random unique short code
+used in shortened URLs.
+*/
+
+const generateCode = () => {
+    return nanoid(6); // 6 character code
+};
 
 module.exports = generateCode;
