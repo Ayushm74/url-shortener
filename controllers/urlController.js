@@ -1,43 +1,90 @@
-const Url = require('../models/Url');
-const generateCode = require('../utils/generateCode');
+const Url = require("../models/Url");
+const generateCode = require("../utils/generateCode");
 
-exports.shortenUrl = async (req, res) => {
-  const { fullUrl } = req.body;
-  if (!fullUrl) return res.status(400).json({ message: 'fullUrl is required' });
+/*
+Creates a shortened URL and stores
+mapping between original and short code.
+*/
 
-  try {
-    let url = await Url.findOne({ fullUrl });
-    if (url) return res.json({ shortCode: url.shortCode });
+exports.createShortUrl = async (req, res) => {
 
-    let shortCode;
-    let exists;
-    do {
-      shortCode = generateCode(6);
-      exists = await Url.findOne({ shortCode });
-    } while (exists);
+    const { originalUrl, customCode } = req.body;
 
-    url = new Url({ fullUrl, shortCode });
-    await url.save();
+    try {
 
-    res.json({ shortCode });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
+        let shortCode = customCode || generateCode();
+
+        const existing = await Url.findOne({ shortCode });
+
+        if (existing) {
+            return res.status(400).json({ message: "Code already taken" });
+        }
+
+        const newUrl = new Url({
+            originalUrl,
+            shortCode
+        });
+
+        await newUrl.save();
+
+        res.json({
+            shortUrl: `http://localhost:5000/${shortCode}`
+        });
+
+    } catch (error) {
+        res.status(500).json(error);
+    }
 };
 
-exports.redirect = async (req, res) => {
-  const { code } = req.params;
-  try {
-    const url = await Url.findOne({ shortCode: code });
-    if (!url) return res.status(404).json({ message: 'Not found' });
 
-    url.clicks += 1;
-    await url.save();
+/*
+Redirects user to original URL
+and increments click counter.
+*/
 
-    res.redirect(url.fullUrl);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
+exports.redirectUrl = async (req, res) => {
+
+    try {
+
+        const url = await Url.findOne({ shortCode: req.params.code });
+
+        if (!url) {
+            return res.status(404).send("URL not found");
+        }
+
+        url.clicks += 1;
+        await url.save();
+
+        res.redirect(url.originalUrl);
+
+    } catch (error) {
+        res.status(500).send(error);
+    }
+};
+
+
+/*
+Returns analytics for the short URL
+like number of clicks.
+*/
+
+exports.getAnalytics = async (req, res) => {
+
+    try {
+
+        const url = await Url.findOne({ shortCode: req.params.code });
+
+        if (!url) {
+            return res.status(404).send("URL not found");
+        }
+
+        res.json({
+            originalUrl: url.originalUrl,
+            clicks: url.clicks,
+            createdAt: url.createdAt
+        });
+
+    } catch (error) {
+        res.status(500).send(error);
+    }
 };
